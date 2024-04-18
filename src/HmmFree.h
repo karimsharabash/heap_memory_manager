@@ -14,8 +14,6 @@ typedef struct freeBlock
     struct freeBlock* prev;
 }freeBlockStruct;
 
-void* increaseHeapSize(size_t size);
-
 void* getFromfreeList(size_t length);
 
 uint32_t isfreeBlock(freeBlockStruct* block);

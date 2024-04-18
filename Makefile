@@ -18,7 +18,7 @@ OBJS := $(SRCS:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 DEPS := $(SRCS:$(SRC_DIR)/%.c=$(DEP_DIR)/%.d)
 LIB := $(SRCS:$(SRC_DIR)/%.c=$(DEP_DIR)/%.d)
 
-CFLAGS := $(INC_DIR) 
+CFLAGS := $(INC_DIR) -g
 
 # Define the application executable name
 APP_NAME := hmm

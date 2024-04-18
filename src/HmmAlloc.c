@@ -14,7 +14,7 @@
 
 //static uint32_t* heapStart = sbrk(0);
 
-#define SBRK_INC_SIZE (4096) /* 4KB */
+#define SBRK_INC_SIZE ( (100 * 1024) + ( 1024 + sizeof(size_t)) )/* 100KB  + 1k for the libc +  the length block for this block*/
 
 
 void* HmmAlloc(size_t reqSize)
@@ -45,23 +45,15 @@ void* HmmAlloc(size_t reqSize)
         {
             sbrkSize = SBRK_INC_SIZE * 2;
         }
-        else if (size < (SBRK_INC_SIZE * 4))
-        {
-            sbrkSize = SBRK_INC_SIZE* 4;
-        }
-        else if (size < (SBRK_INC_SIZE * 8))
-        {
-            sbrkSize = SBRK_INC_SIZE * 8;
-        }
         else
         {
             /*exceeded the MAX */
             return NULL;
         }
         
-        allocPtr = increaseHeapSize(sbrkSize);
+        allocPtr = sbrk(sbrkSize); 
 
-        if (allocPtr ==NULL)
+        if (allocPtr == NULL)
         {
             return NULL;
         }
@@ -69,7 +61,7 @@ void* HmmAlloc(size_t reqSize)
         *allocPtr = size;
         if (size < sbrkSize)
         {
-            remBlockPtr = (size_t*) ((uint8_t*)allocPtr + size);
+            remBlockPtr = (size_t*) ((size_t)allocPtr + size);
             *remBlockPtr = sbrkSize - size;
             
             addTofreeList((freeBlockStruct *)remBlockPtr);
@@ -77,7 +69,6 @@ void* HmmAlloc(size_t reqSize)
         
     }
     allocPtr = allocPtr + 1;
-
 
     return allocPtr;
 }
@@ -100,6 +91,7 @@ void* hmmCalloc(size_t nmemb, size_t size)
     return retPtr;
 
 }
+
 /*  The realloc() function changes the size of the memory block pointed to by ptr to size bytes.
     The contents will be unchanged, If the new size is larger than the old size, the added memory will not be initialized.
     If ptr is NULL, then the call is equivalent to malloc(size), for all values of size; if size is equal to zero, 
@@ -133,14 +125,14 @@ void* hmmReAlloc(void *ptr, size_t reqSize)
     else if (newSize > oldSize)
     {
         /* check if the following block is free and the total size of it and the current block size can fit the new block*/
-        nextBlock = (freeBlockStruct*) ((uint8_t*) ptr + oldSize);
+        nextBlock = (freeBlockStruct*) ((size_t) ptr + oldSize);
         neededSize = newSize - oldSize;
 
         if ((nextBlock < (freeBlockStruct*)sbrk(0)) && (isfreeBlock(nextBlock) == 1) && (nextBlock->length > neededSize))
         {
             removeBlockFromFreeList(nextBlock);
 
-            HmmFree((freeBlockStruct*) ((uint8_t*)nextBlock + neededSize));
+            HmmFree((freeBlockStruct*) ((size_t)nextBlock + neededSize));
 
             *((size_t*) ptr - 1) = newSize;
         }
@@ -159,7 +151,7 @@ void* hmmReAlloc(void *ptr, size_t reqSize)
     else
     {
         /* if the required size is smaller than the old size, then resize the old block and free the unneeded space */
-        nextBlock = (freeBlockStruct*) ((uint8_t*) ptr + (oldSize - newSize));
+        nextBlock = (freeBlockStruct*) ((size_t) ptr + (oldSize - newSize));
         nextBlock->length = oldSize - newSize;
     
         HmmFree(nextBlock);

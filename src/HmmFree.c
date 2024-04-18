@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <assert.h>
+
 #include "common.h"
 #include "HmmFree.h"
 
@@ -26,12 +28,21 @@ void addTofreeList(freeBlockStruct* newBlock)
         while(tmpBlock != NULL)
         {
             /* add it on order to make the HMM works in best fit algorithm */
-            if (newBlock->length < tmpBlock->length )
+            if (newBlock->length <= tmpBlock->length )
             {
                 /* insert here */
                 newBlock->prev = tmpBlock->prev;
                 newBlock->next = tmpBlock;
+                if (tmpBlock->prev != NULL)
+                {
+                    tmpBlock->prev->next = newBlock;
+                }
                 tmpBlock->prev = newBlock;
+
+                if (tmpBlock == freeBlocksListHead)
+                {
+                    freeBlocksListHead = newBlock;
+                }
 
                 break;
             }
@@ -55,6 +66,30 @@ void addTofreeList(freeBlockStruct* newBlock)
     
 }
 
+freeBlockStruct* isPrevBlockFree(freeBlockStruct* block)
+{
+    freeBlockStruct* tmpBlock = freeBlocksListHead;
+
+    if (block == NULL)
+    {
+        return NULL;
+    }
+    while(tmpBlock != NULL)
+    {
+        if (((size_t)tmpBlock + (tmpBlock->length)) == (size_t)block)
+        {
+            return tmpBlock;
+
+        }
+        else
+        {
+            tmpBlock = tmpBlock->next;
+        }
+    }
+
+    return NULL;
+}
+
 uint32_t isfreeBlock(freeBlockStruct* block)
 {
     freeBlockStruct* tmpBlock = freeBlocksListHead;
@@ -63,10 +98,9 @@ uint32_t isfreeBlock(freeBlockStruct* block)
     {
         return 0;
     }
-
     while(tmpBlock != NULL)
     {
-        if ((block->prev == tmpBlock->prev) && (block->length == tmpBlock->length))
+        if ((block == tmpBlock) && (block->length == tmpBlock->length))
         {
             return 1;
 
@@ -89,9 +123,8 @@ void removeBlockFromFreeList(freeBlockStruct* block)
          {
              block->next->prev = NULL;
          }
-        
+        return;
     }
-
     /* remove the block from the free blocks list and make a new block from the remaining size and add it to the list */
     if (block->next != NULL)
     {
@@ -123,7 +156,7 @@ void* getFromfreeList(size_t length)
         {
             removeBlockFromFreeList(tmpBlock);
             
-            remBlock = (freeBlockStruct*)((uint8_t*)tmpBlock + length );
+            remBlock = (freeBlockStruct*)((size_t)tmpBlock + length );
 
             remBlock->length = tmpBlock->length - length;
             addTofreeList(remBlock);
@@ -140,52 +173,61 @@ void* getFromfreeList(size_t length)
     return NULL;
 }
 
-void* increaseHeapSize(size_t size)
-{
-    uint32_t* newItemPtr;
-    freeBlockStruct* newBlock;
-    /* use sbrk to allocate the new required size */
-    newItemPtr = sbrk(size); /* should we increment 1 */
-
-    if (newItemPtr == NULL)
-    {
-        return NULL;
-    }
-
-    newBlock = (freeBlockStruct*) newItemPtr;
-    newBlock->length = size;
-    newBlock->next = NULL;
-    newBlock->prev = NULL;
-
-    return newBlock;
-}
-
-
 void HmmFree(void *ptr)
 {
     freeBlockStruct* blockAddress;
-    freeBlockStruct* nextBlock;
+    freeBlockStruct* nextBlock,* prevBlock;
     /* validate the pointer */
     if (ptr == NULL)
     {
         return;
     }
-    if (isfreeBlock( (freeBlockStruct*)((size_t*) ptr - 1)) == 1)
-    {
-        return;
-    }
+
+    /* catch double free */
+    assert( isfreeBlock( (freeBlockStruct*)((size_t*) ptr - 1)) != 1);
+
     /* subtract the bytes of the length */
-    blockAddress = (freeBlockStruct*)((size_t*) ptr - 1);
+    blockAddress = (freeBlockStruct*)((ssize_t) ptr - sizeof(ssize_t));
 
     /* check if the next block is a free block then gather the two blocks into one large block */
-    nextBlock = (freeBlockStruct*) ((uint8_t*) blockAddress + blockAddress->length);
+    nextBlock = (freeBlockStruct*) ((ssize_t) blockAddress + blockAddress->length);
+
     
+    /* check if the next block is free also, then concatenate both blocks */
     if ((nextBlock < (freeBlockStruct*)sbrk(0)) && (isfreeBlock(nextBlock) == 1))
     {
+        
         removeBlockFromFreeList(nextBlock);
 
-        blockAddress->length = blockAddress->length + nextBlock->length;
+        blockAddress->length += nextBlock->length;
     }
+
+    /* check if the prev block is free also, then concatenate both blocks */
+    prevBlock = isPrevBlockFree(blockAddress);
+
+    if (prevBlock != NULL)
+    {
+        removeBlockFromFreeList(prevBlock);
+        prevBlock->length += blockAddress->length;
+        blockAddress = prevBlock;
+    }
+
     /* add the block to the free block */
     addTofreeList(blockAddress);
+
+}
+
+/* print all the elements of the free blocks list for debugging */
+void print_free_list(void)
+{
+    freeBlockStruct* tmpBlock = freeBlocksListHead;
+    int i = 0 ;
+    printf("\n----------\nfree list content\n----------\n");
+    while(tmpBlock != NULL)
+    {
+        printf("node %d, length = %lu, prev = %p, next = %p\n", i,tmpBlock->length, tmpBlock->prev, tmpBlock->next );
+        i++;
+        tmpBlock = tmpBlock->next;
+    }
+
 }
