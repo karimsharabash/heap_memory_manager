@@ -23,7 +23,6 @@
 
 extern char end, edata, etext;
 
-void print_free_list(void);
 void memset_word(void *ptr, unsigned int value, size_t num_words);
 
 void main(int argc, char *argv[])
@@ -189,9 +188,8 @@ void main(int argc, char *argv[])
 
     printf("CALLOC test: succeeded\n"); 
 #endif /* CALLOC_IS_DEFINED */
-    print_free_list();
-    exit(EXIT_SUCCESS);
 
+    exit(EXIT_SUCCESS);
 }
 
 

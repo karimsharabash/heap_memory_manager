@@ -12,7 +12,7 @@
 #include "HmmFree.h"
 #include "Hmm.h"
 
-//static uint32_t* heapStart = sbrk(0);
+static size_t* heapEnd;
 
 #define SBRK_INC_SIZE ( (100 * 1024) + ( 1024 + sizeof(size_t)) )/* 100KB  + 1k for the libc +  the length block for this block*/
 
@@ -51,7 +51,8 @@ void* HmmAlloc(size_t reqSize)
             return NULL;
         }
         
-        allocPtr = sbrk(sbrkSize); 
+        allocPtr = sbrk(sbrkSize);
+        heapEnd = (size_t*) ((size_t)allocPtr + sbrkSize);
 
         if (allocPtr == NULL)
         {
@@ -128,7 +129,7 @@ void* hmmReAlloc(void *ptr, size_t reqSize)
         nextBlock = (freeBlockStruct*) ((size_t) ptr + oldSize);
         neededSize = newSize - oldSize;
 
-        if ((nextBlock < (freeBlockStruct*)sbrk(0)) && (isfreeBlock(nextBlock) == 1) && (nextBlock->length > neededSize))
+        if ((nextBlock < (freeBlockStruct*)heapEnd) && (isfreeBlock(nextBlock) == 1) && (nextBlock->length > neededSize))
         {
             removeBlockFromFreeList(nextBlock);
 
