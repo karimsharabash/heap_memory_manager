@@ -16,7 +16,9 @@ typedef struct freeBlock
 
 void* getFromfreeList(size_t length);
 
-uint32_t isfreeBlock(freeBlockStruct* block);
+BOOL isfreeBlock(freeBlockStruct* block);
+
+BOOL isBlookinFreedBlock(freeBlockStruct* block);
 
 void removeBlockFromFreeList(freeBlockStruct* block);
 

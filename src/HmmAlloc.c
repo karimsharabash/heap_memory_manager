@@ -16,14 +16,22 @@ static size_t* heapEnd;
 
 #define SBRK_INC_SIZE ( (100 * 1024) + ( 1024 + sizeof(size_t)) )/* 100KB  + 1k for the libc +  the length block for this block*/
 
-
+/* This function overwrites malloc function,
+    1) it searches for a free block from the freeBlocksList
+    2) if there is available free blocks then reserve more memory from the kernel
+    3) if the found block is bigger than the needed then take the needed part only add the rest of the block to freeBLocksList
+    4) return the block address in success and NUll in failure*/
 void* HmmAlloc(size_t reqSize)
 {
     size_t* allocPtr;
     size_t* remBlockPtr;
     uint32_t sbrkSize = 0;
-
     size_t size = reqSize + sizeof(size_t);
+
+    if (reqSize == 0)
+    {
+        return NULL;
+    }
 
     /* the block should at least equal the size of free block struct so we can add it later to the free block list*/
     if (size < (sizeof(freeBlockStruct)))
@@ -74,7 +82,9 @@ void* HmmAlloc(size_t reqSize)
     return allocPtr;
 }
 
-
+/* This function overwrites calloc function, 
+    it takes the sizes as elements count and element size and allocates the total size using malloc
+    then initialize the whole block with zeros */
 void* hmmCalloc(size_t nmemb, size_t size)
 {
     size_t totalSize = nmemb * size;
@@ -129,7 +139,7 @@ void* hmmReAlloc(void *ptr, size_t reqSize)
         nextBlock = (freeBlockStruct*) ((size_t) ptr + oldSize);
         neededSize = newSize - oldSize;
 
-        if ((nextBlock < (freeBlockStruct*)heapEnd) && (isfreeBlock(nextBlock) == 1) && (nextBlock->length > neededSize))
+        if ((nextBlock < (freeBlockStruct*)heapEnd) && (isfreeBlock(nextBlock) == TRUE) && (nextBlock->length > neededSize))
         {
             removeBlockFromFreeList(nextBlock);
 
@@ -163,7 +173,7 @@ void* hmmReAlloc(void *ptr, size_t reqSize)
     return ptr;
 }
 
-
+/* return the size of the allocated block without the size of the length variable area*/
 size_t hmmSize(void *ptr)
 {
     return (size_t) (*(size_t*) ((size_t*) ptr - 1 ) - sizeof(size_t));

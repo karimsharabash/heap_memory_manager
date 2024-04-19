@@ -7,16 +7,22 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <assert.h>
 
 #include "common.h"
 #include "HmmFree.h"
 
 static freeBlockStruct* freeBlocksListHead = NULL;
 
+/* Add this block to the freeBlockList in ascending order to fulfil the Best-Fit algorthim */
 void addTofreeList(freeBlockStruct* newBlock)
 {
     freeBlockStruct* tmpBlock = freeBlocksListHead;
+    if (newBlock == NULL)
+    {
+        ASSERT(0, "Invalid pointer\n");
+        return;
+    }
+
     if (tmpBlock == NULL)
     {
         freeBlocksListHead = newBlock;
@@ -66,6 +72,7 @@ void addTofreeList(freeBlockStruct* newBlock)
     
 }
 
+/* Check if the prev block to this block is in the freeBlockList */
 freeBlockStruct* isPrevBlockFree(freeBlockStruct* block)
 {
     freeBlockStruct* tmpBlock = freeBlocksListHead;
@@ -90,19 +97,20 @@ freeBlockStruct* isPrevBlockFree(freeBlockStruct* block)
     return NULL;
 }
 
-uint32_t isfreeBlock(freeBlockStruct* block)
+/* Check if this block is in the freeBlockList */
+BOOL isfreeBlock(freeBlockStruct* block)
 {
     freeBlockStruct* tmpBlock = freeBlocksListHead;
 
     if (block == NULL)
     {
-        return 0;
+        return FALSE;
     }
     while(tmpBlock != NULL)
     {
         if ((block == tmpBlock) && (block->length == tmpBlock->length))
         {
-            return 1;
+            return TRUE;
 
         }
         else
@@ -111,9 +119,36 @@ uint32_t isfreeBlock(freeBlockStruct* block)
         }
     }
 
-    return 0;
+    return FALSE;
 }
 
+/* Check if this address is located withon on of the blocks of the freeBlocksList */
+BOOL isBlookinFreedBlock(freeBlockStruct* block)
+{
+    freeBlockStruct* tmpBlock = freeBlocksListHead;
+
+    if (block == NULL)
+    {
+        return FALSE;
+    }
+    while(tmpBlock != NULL)
+    {
+
+        if ((block >= tmpBlock) && ((size_t)block < ((size_t)tmpBlock + tmpBlock->length)))
+        {
+            return TRUE;
+
+        }
+        else
+        {
+            tmpBlock = tmpBlock->next;
+        }
+    }
+
+    return FALSE;
+}
+
+/* Remove this block from the freeBlocksList */
 void removeBlockFromFreeList(freeBlockStruct* block)
 {
     if (block == freeBlocksListHead)
@@ -138,6 +173,7 @@ void removeBlockFromFreeList(freeBlockStruct* block)
 
 }
 
+/* search for a block with the best-fit for this length and remove this block from the freeBlocksList */
 void* getFromfreeList(size_t length)
 {
     freeBlockStruct* tmpBlock = freeBlocksListHead;
@@ -173,6 +209,10 @@ void* getFromfreeList(size_t length)
     return NULL;
 }
 
+/* The function that overwirtes free function
+    1) Check that this pointer is not in the already freed area
+    2) Check if the prev block and the next block are free blocks or not, to concatenate the blocks to produce a larger blocks
+    3) Add this block to the freeBlocksList */
 void HmmFree(void *ptr)
 {
     freeBlockStruct* blockAddress;
@@ -184,7 +224,7 @@ void HmmFree(void *ptr)
     }
 
     /* catch double free */
-    assert( isfreeBlock( (freeBlockStruct*)((size_t*) ptr - 1)) != 1);
+    ASSERT( isBlookinFreedBlock( (freeBlockStruct*)((size_t*) ptr - 1)) != 1, "This block is already free\n");
 
     /* subtract the bytes of the length */
     blockAddress = (freeBlockStruct*)((ssize_t) ptr - sizeof(ssize_t));
@@ -194,7 +234,7 @@ void HmmFree(void *ptr)
 
     
     /* check if the next block is free also, then concatenate both blocks */
-    if ((nextBlock < (freeBlockStruct*)sbrk(0)) && (isfreeBlock(nextBlock) == 1))
+    if ((nextBlock < (freeBlockStruct*)sbrk(0)) && (isfreeBlock(nextBlock) == TRUE))
     {
         
         removeBlockFromFreeList(nextBlock);
