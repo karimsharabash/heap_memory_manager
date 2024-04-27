@@ -11,6 +11,9 @@
 #include "common.h"
 #include "HmmFree.h"
 
+/* This macro to enable the double free checking but it increases the time of HmmFree function */ 
+#define DOUBLE_FREE_CHECK
+
 static freeBlockStruct* freeBlocksListHead = NULL;
 
 /* Add this block to the freeBlockList in ascending order to fulfil the Best-Fit algorthim */
@@ -150,7 +153,7 @@ BOOL isBlookinFreedBlock(freeBlockStruct* block)
 
 /* Remove this block from the freeBlocksList */
 void removeBlockFromFreeList(freeBlockStruct* block)
-{
+{   
     if (block == freeBlocksListHead)
     {
         freeBlocksListHead = block->next;
@@ -191,13 +194,17 @@ void* getFromfreeList(size_t length)
         if (length < (tmpBlock->length))
         {
             removeBlockFromFreeList(tmpBlock);
-            
-            remBlock = (freeBlockStruct*)((size_t)tmpBlock + length );
+            if (tmpBlock->length - length >= sizeof(freeBlockStruct))
+            {
+                remBlock = (freeBlockStruct*)((size_t)tmpBlock + length );
+                remBlock->length = tmpBlock->length - length;
+                remBlock->prev = NULL;
+                remBlock->next = NULL;
+                addTofreeList(remBlock);
 
-            remBlock->length = tmpBlock->length - length;
-            addTofreeList(remBlock);
+                tmpBlock->length = length;
+            }
 
-            tmpBlock->length = length;
             return tmpBlock;
         }
         else
@@ -224,13 +231,22 @@ void HmmFree(void *ptr)
     }
 
     /* catch double free */
-    ASSERT( isBlookinFreedBlock( (freeBlockStruct*)((size_t*) ptr - 1)) != 1, "This block is already free\n");
+    #ifdef DOUBLE_FREE_CHECK
+        // ASSERT( isBlookinFreedBlock( (freeBlockStruct*)((size_t*) ptr - 1)) != 1, "This block is already free\n");
+
+        if (isBlookinFreedBlock( (freeBlockStruct*)((size_t*) ptr - 1)) == 1) 
+        {
+            return ;
+        }
+    #endif 
 
     /* subtract the bytes of the length */
-    blockAddress = (freeBlockStruct*)((ssize_t) ptr - sizeof(ssize_t));
+    blockAddress = (freeBlockStruct*)((size_t) ptr - sizeof(size_t));
 
-    /* check if the next block is a free block then gather the two blocks into one large block */
-    nextBlock = (freeBlockStruct*) ((ssize_t) blockAddress + blockAddress->length);
+    
+
+     /* check if the next block is a free block then gather the two blocks into one large block */
+    nextBlock = (freeBlockStruct*) ((size_t) blockAddress + blockAddress->length);
 
     
     /* check if the next block is free also, then concatenate both blocks */
@@ -251,10 +267,10 @@ void HmmFree(void *ptr)
         prevBlock->length += blockAddress->length;
         blockAddress = prevBlock;
     }
-
+    blockAddress->next = blockAddress->prev = NULL;
     /* add the block to the free block */
     addTofreeList(blockAddress);
-
+        // print_free_list();
 }
 
 /* print all the elements of the free blocks list for debugging */

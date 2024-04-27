@@ -18,8 +18,8 @@ typedef enum bool
 #define ENABLE_ASSERT
 
 #ifdef ENABLE_ASSERT
-#define ASSERT(cond, ... /* print string and args*/ )  \
-    if (!(cond)) { printf(__VA_ARGS__); assert(0);}
+#define ASSERT(cond, assertStr /* print string and args*/ )  \
+    if (!(cond)) { write(1, assertStr , strlen(assertStr)); assert(0);}
 #else
 #define ASSERT(aCond, ... /* print string and args*/ ) 
 

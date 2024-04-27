@@ -7,7 +7,7 @@
 #include <stdint.h>
 
 #define SMALL_BLOCKS_ALLOCS_COUNT (1024)
-#define SMALL_BLOCKS_SIZE         (100 - sizeof(size_t))
+#define SMALL_BLOCKS_SIZE         (90 - sizeof(size_t))
 #define LARGE_BLOCKS_ALLOCS_COUNT (100)
 #define LARGE_BLOCKS_SIZE         (1024 - sizeof(size_t))
 #define HUGE_BLOCKS_ALLOCS_COUNT  (2)
@@ -167,7 +167,7 @@ void main(int argc, char *argv[])
     assert(allocatedPtr[3] == VALIDATION_WORD);
 
     free(allocatedPtr);
-
+    
     printf("REALLOC test: succeeded\n"); 
     /* REALLOC test end*/
 #endif /* REALLOC_IS_DEFINED */
